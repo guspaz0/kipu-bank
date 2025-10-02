@@ -12,12 +12,6 @@ contract KipuBank {
           Variables de estado
     ///////////////////////////////*/
 
-    /// @notice Dirección del propietario del contrato
-    address public immutable owner;
-
-    /// @notice Dirección de la tesorería
-    address public immutable treasury;
-
     /// @notice Límite por transacción de retiro (en wei)
     uint256 public immutable withdrawLimit; 
 
@@ -25,10 +19,13 @@ contract KipuBank {
     mapping(address => uint256) private balances;
 
     /// @notice Limite global de depositos;
-    uint256 private treasuryBalance;
+    uint256 public treasuryBalance;
 
     /// @notice Limite global de depositos;
-    uint256 public bankCap;
+    uint256 public immutable bankCap;
+
+    /// @notice Indica si el contrato está bloqueado para nuevas transacciones.
+    bool private lock;
 
     /*//////////////////////////////
             Errores
@@ -47,7 +44,7 @@ contract KipuBank {
     error Unauthorized(address caller);
 
     /// @notice Error personalizado para manejo de excedentes del límite del banco
-    error BankCapLimitExceeded(uint256 attemptedDeposit, uint256 bankCap);
+    error BankCapLimitExceeded(string message, address caller, uint256 attemptedDeposit, uint256 bankCap);
 
     /*//////////////////////////////
             Eventos
@@ -59,66 +56,48 @@ contract KipuBank {
     /// @notice Evento que se emite cuando se realiza un retiro
     event Withdrawal(address indexed _user, uint256 _amount, uint256 _newBalance);
 
-    /// @notice Evento que se emite cuando el propietario retira fondos de la tesorería
-    event TreasuryWithdrawal(address indexed _owner, uint256 _amount);
-
     /*//////////////////////////////
             Modificadores
     ///////////////////////////////*/
 
-    /// @notice Modificador para verificar si el llamador es el propietario
-    modifier onlyOwner() {
-        if (msg.sender != owner) revert Unauthorized(msg.sender);
-        _;
-    }
     /// @notice Modificador para validar que el llamador no sea la dirección cero
     modifier validateSender() {
         if (msg.sender == address(0)) revert Unauthorized(msg.sender);
         _;
     }
+    /// @notice Modificador para evitar la reentrancia
+    modifier nonReentrant() {
+        require(lock == false, Unauthorized(msg.sender));
+        lock = true;
+        _;
+        lock = false;
+    }
+    /// @notice Modificador para verificar si no se ah excedido el limite del banco y actualiza el balance
+    modifier bankCapCheck() {
+        uint256 newBalance = treasuryBalance + msg.value;
+        if (newBalance > bankCap) revert BankCapLimitExceeded("global deposit limit exceeded", msg.sender, msg.value, bankCap);
+        treasuryBalance = newBalance;
+        _;
+    }
 
     /**
      * @dev Constructor del contrato
-     * @param _treasury La dirección de la tesorería
      * @param _bankCap El límite máximo de fondos que el banco puede manejar (en wei)
      * @param _withdrawLimit El límite máximo de retiro por transacción (en wei)
      */
-    constructor(address _treasury, uint256 _bankCap, uint256 _withdrawLimit) validateSender {
-        if (_treasury == address(0)) revert Unauthorized(_treasury);
-        if (_withdrawLimit > 0) {
-            owner = msg.sender;
-            treasury = _treasury;
+    constructor(uint256 _bankCap, uint256 _withdrawLimit) validateSender {
+        if (_withdrawLimit > 0 && _bankCap > 0) {
             withdrawLimit = _withdrawLimit;
             bankCap = _bankCap;
             treasuryBalance = 0;
         } else {
-            revert ValueError(_withdrawLimit);
+            revert CustomError("failed to initialize, check constructor parameters", msg.sender, 0);
         }
     }
 
     /*//////////////////////////////
             Funciones
     ///////////////////////////////*/
-
-    /**
-     * @dev Función para hacer un depósito de ETH en la cuenta del usuario
-     */
-    function deposit() external payable validateSender {
-        if (msg.value > 0) {
-            // Verificar que el depósito no exceda el límite del banco
-            require((treasuryBalance + msg.value) <= bankCap, BankCapLimitExceeded(treasuryBalance+msg.value, bankCap));
-            
-            treasuryBalance += msg.value;
-
-            // Agregar la cantidad depositada al balance del usuario
-            balances[msg.sender] += msg.value;
-
-            // Emitir un evento con la información del depósito
-            emit Deposit(msg.sender, msg.value, balances[msg.sender]);
-        } else {
-            revert CustomError("El valor del deposito debe ser mayor a 0", msg.sender, msg.value);
-        }
-    }
 
     /**
      * @dev Función para verificar el saldo del usuario
@@ -132,22 +111,25 @@ contract KipuBank {
      * @dev Función para retirar ETH de la cuenta del usuario
      * @param amount La cantidad a retirar (en wei)
      */
-    function withdraw(uint256 amount) external validateSender {
+    function withdraw(uint256 amount) public payable validateSender nonReentrant {
         if (amount > 0) {
-            require(amount <= balances[msg.sender], InsufficientBalance(amount, balances[msg.sender]));
-            // Restar el monto total (incluyendo el fee) del balance del usuario
+            if (amount > withdrawLimit) revert CustomError("Withdrawal limit exceeded", msg.sender, amount);
+            if (amount > balances[msg.sender]) revert InsufficientBalance(amount, balances[msg.sender]);
+
+            // Restar la cantidad retirada al balance del usuario
             balances[msg.sender] -= amount;
 
             // Restar el balance de la tesorería
             treasuryBalance -= amount;
 
+            // Emitir evento de retiro
             emit Withdrawal(msg.sender, amount, balances[msg.sender]);
 
-            // Transferir la cantidad después del fee al usuario
+            // Transferir la cantidad al usuario
             (bool success, ) = msg.sender.call{value: amount}("");
-            require(success, CustomError("Transferencia fallida", msg.sender, amount));
+            if (!success) revert CustomError("failed transfer", msg.sender, amount);
         } else {
-            revert CustomError("El valor del deposito debe ser mayor a 0", msg.sender, amount);
+            revert CustomError("invalid amount", msg.sender, amount);
         }
     }
 
@@ -156,17 +138,19 @@ contract KipuBank {
     ///////////////////////////////*/
 
     /// @notice Función para aceptar ETH directo (sin datos)
-    receive() external payable {
-        balances[msg.sender] += msg.value;
-        bankCap += msg.value;
-        emit Deposit(msg.sender, msg.value, balances[msg.sender]);
+    receive() external payable validateSender bankCapCheck {
+        if (msg.value > 0) {
+            balances[msg.sender] += msg.value;
+            emit Deposit(msg.sender, msg.value, balances[msg.sender]);
+        } else {
+            revert CustomError("receive sin ETH", msg.sender, msg.value);
+        }
     }
 
     /// @notice Fallback para llamadas con datos inesperados
-    fallback() external payable {
+    fallback() external payable validateSender bankCapCheck {
         if (msg.value > 0) {
             balances[msg.sender] += msg.value;
-            bankCap += msg.value;
             emit Deposit(msg.sender, msg.value, balances[msg.sender]);
         } else {
             revert CustomError("Funcion inexistente y sin ETH", msg.sender, msg.value);
