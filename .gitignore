@@ -19,14 +19,6 @@
 # Hardhat coverage reports
 /coverage
 
-/test
-/scripts
-/ignition
 /.vscode
 
-*.config.js
-*.config.ts
 package-lock.json
-package.json
-tsconfig.json
-*HARDHAT.md
