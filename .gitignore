@@ -18,11 +18,14 @@
 
 # Hardhat coverage reports
 /coverage
+#pnpm
+/.pnpm-store
 
 /test
 /scripts
 /ignition
 /.vscode
+
 
 *.config.js
 *.config.ts
