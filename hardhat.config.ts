@@ -1,10 +1,16 @@
 import type { HardhatUserConfig } from "hardhat/config";
-
 import hardhatToolboxMochaEthersPlugin from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
 import { configVariable } from "hardhat/config";
+import HardhatContractSizer from '@solidstate/hardhat-contract-sizer';
 
 const config: HardhatUserConfig = {
-  plugins: [hardhatToolboxMochaEthersPlugin],
+  plugins: [
+    hardhatToolboxMochaEthersPlugin, 
+    HardhatContractSizer
+  ],
+  contractSizer: {
+    runOnCompile: false
+  },
   solidity: {
     profiles: {
       default: {
