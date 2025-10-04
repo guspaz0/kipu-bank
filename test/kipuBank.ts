@@ -3,13 +3,12 @@ import { network } from "hardhat";
 
 const { ethers, networkHelpers } = await network.connect();
 
-const WITHDRAW_LIMIT = BigInt(1e18); // 1 ETH
-const BANK_CAP = BigInt(1e21); // 1000 ETH
+const BANK_CAP = BigInt(1e15); // 0.001 ETH
 
 describe("kipuBank", async function () {
   async function kipuBankFixture() {
     const [owner, user1, user2, user3, user4, user5, user6] = await ethers.getSigners();
-    const kipubank = await ethers.deployContract("KipuBank", [BANK_CAP, WITHDRAW_LIMIT], { from: owner });
+    const kipubank = await ethers.deployContract("KipuBank", [BANK_CAP], { from: owner });
     await kipubank.waitForDeployment();
     return { kipubank, owner, user1, user2, user3, user4, user5, user6 };
   }
@@ -21,33 +20,27 @@ describe("kipuBank", async function () {
         expect(await kipubank.bankCap()).to.equal(BANK_CAP);
       }
     );
-    it("Debería establecer el límite de retiro correcto", 
-      async function () {
-        const { kipubank } = await networkHelpers.loadFixture(kipuBankFixture);
-        expect(await kipubank.withdrawLimit()).to.equal(WITHDRAW_LIMIT);
-      }
-    );
   });
 
   describe("Transacciones", function () {
-    it("Debería permitir a los usuarios depositar dentro del límite del banco", async function () {
+    it("Debería permitir a los usuarios depositar dentro del límite del banco (deposito con fallbacks)", async function () {
       const { kipubank, user1, user2, user3 } = await networkHelpers.loadFixture(kipuBankFixture);
 
-      // User1 deposits 400 ETH
-      const depositAmount1 = ethers.parseEther("400");
+      // User1 deposits  0.0004 ETH
+      const depositAmount1 = ethers.parseEther("0.0004");
 
       await expect(() =>
         user1.sendTransaction({ to: kipubank.getAddress(), value: depositAmount1 })
       ).to.changeEtherBalances(ethers,[user1, kipubank], [-depositAmount1, depositAmount1]);
 
-      // User2 deposits 300 ETH
-      const depositAmount2 = ethers.parseEther("300");
+      // User2 deposits 0.0003 ETH
+      const depositAmount2 = ethers.parseEther("0.0003");
       await expect(() =>
         user2.sendTransaction({ to: kipubank.getAddress(), value: depositAmount2 })
       ).to.changeEtherBalances(ethers, [user2, kipubank], [-depositAmount2, depositAmount2]);
 
-      // User3 deposits 200 ETH
-      const depositAmount3 = ethers.parseEther("200");
+      // User3 deposits 0.0002 ETH
+      const depositAmount3 = ethers.parseEther("0.0002");
 
       await expect(() =>
         user3.sendTransaction({ to: kipubank.getAddress(), value: depositAmount3 })
@@ -57,25 +50,25 @@ describe("kipuBank", async function () {
       expect(await kipubank.treasuryBalance()).to.equal(depositAmount1 + depositAmount2 + depositAmount3);
     });
 
-    it("No debería permitir a los usuarios depositar más del límite del banco",
+    it("No debería permitir a los usuarios depositar más del límite del banco (deposito con fallbacks)",
       async function () {
         const { kipubank, user1, user2, user3, user4 } = await networkHelpers.loadFixture(kipuBankFixture);
 
-        // User1 deposits 400 ETH
-        const depositAmount1 = ethers.parseEther("400");
+        // User1 deposits 0.0004 ETH
+        const depositAmount1 = ethers.parseEther("0.0004");
 
         await expect(() =>
           user1.sendTransaction({ to: kipubank.getAddress(), value: depositAmount1 })
         ).to.changeEtherBalances(ethers,[user1, kipubank], [-depositAmount1, depositAmount1]);
 
-        // User2 deposits 300 ETH
-        const depositAmount2 = ethers.parseEther("300");
+        // User2 deposits 0.0003 ETH
+        const depositAmount2 = ethers.parseEther("0.0003");
         await expect(() =>
           user2.sendTransaction({ to: kipubank.getAddress(), value: depositAmount2 })
         ).to.changeEtherBalances(ethers, [user2, kipubank], [-depositAmount2, depositAmount2]);
 
-        // User3 deposits 400 ETH
-        const depositAmount3 = ethers.parseEther("400");
+        // User3 deposits  0.0004 ETH
+        const depositAmount3 = ethers.parseEther("0.0004");
 
         const bankCap = await kipubank.bankCap()
 
@@ -88,15 +81,15 @@ describe("kipuBank", async function () {
 
     });
 
-    it("debería permitir a los usuarios retirar sus fondos",
+    it("debería permitir a los usuarios retirar sus fondos (deposito con fallbacks)",
       async function () {
         const { kipubank, user1, user2, user3 } = await networkHelpers.loadFixture(kipuBankFixture);
 
-        // User1 deposits 400 ETH
-        const depositAmount1 = ethers.parseEther("400");
+        // User1 deposits  0.0004 ETH
+        const depositAmount1 = ethers.parseEther("0.0004");
         await user1.sendTransaction({ to: kipubank.getAddress(), value: depositAmount1 })
 
-        const withdrawalAmount = ethers.parseEther("1");
+        const withdrawalAmount = ethers.parseEther("0.0001");
 
         await expect(() =>
           kipubank.connect(user1).withdraw(withdrawalAmount)
@@ -104,15 +97,15 @@ describe("kipuBank", async function () {
       }
     );
 
-    it("debería denegar a los usuarios retirar más del límite de retiro",
+    it("debería denegar a los usuarios retirar más del límite de retiro (deposito con fallbacks)",
       async function () {
         const { kipubank, user1, user2, user3 } = await networkHelpers.loadFixture(kipuBankFixture);
 
-        // User1 deposits 400 ETH
-        const depositAmount1 = ethers.parseEther("400");
+        // User1 deposits 0.0004 ETH
+        const depositAmount1 = ethers.parseEther("0.0004");
         await user1.sendTransaction({ to: kipubank.getAddress(), value: depositAmount1 })
 
-        const withdrawalAmount = ethers.parseEther("2");
+        const withdrawalAmount = ethers.parseEther("0.0002");
 
         await expect(
           kipubank.connect(user1).withdraw(withdrawalAmount)
@@ -125,7 +118,7 @@ describe("kipuBank", async function () {
         const { kipubank, user1, user2, user3 } = await networkHelpers.loadFixture(kipuBankFixture);
 
         // User1 deposits 400 ETH
-        const depositAmount1 = ethers.parseEther("400");
+        const depositAmount1 = ethers.parseEther("0.0004");
         await user1.sendTransaction({ to: kipubank.getAddress(), value: depositAmount1 })
 
         await expect(
@@ -142,18 +135,40 @@ describe("kipuBank", async function () {
     it("debería denegar a los usuarios retirar más de su saldo",
       async function () {
         const { kipubank, user1, user2, user3 } = await networkHelpers.loadFixture(kipuBankFixture);
-        // User1 deposits 0.5 ETH
-        const depositAmount1 = ethers.parseEther("0.5");
+        // User1 deposits 0.00005 ETH
+        const depositAmount1 = ethers.parseEther("0.00005");
 
         await expect(() =>
           user1.sendTransaction({ to: kipubank.getAddress(), value: depositAmount1 })
         ).to.changeEtherBalances(ethers,[user1, kipubank], [-depositAmount1, depositAmount1]);
 
-        const withdrawAmount = ethers.parseEther("1")
+        const withdrawAmount = ethers.parseEther("0.0001")
         await expect(
           kipubank.connect(user1).withdraw(withdrawAmount)
         ).to.be.revertedWithCustomError(kipubank, "InsufficientBalance")
         .withArgs(withdrawAmount, depositAmount1);
+      }
+    )
+    it("deberia aumentar el contador de Depositos y Retiros al realizar una transacción",
+      async function () {
+        const { kipubank, user1, user2, user3 } = await networkHelpers.loadFixture(kipuBankFixture);
+        // User1 deposits 0.00005 ETH
+        const depositAmount1 = ethers.parseEther("0.0001");
+        //await user1.sendTransaction({ to: kipubank.getAddress(), value: depositAmount1 })
+        await kipubank.connect(user1).deposit(depositAmount1,{ value: depositAmount1 })
+        const balance = await kipubank.connect(user1).getBalance()
+        expect(balance).to.be.equal(depositAmount1);
+
+        const withdrawAmount = ethers.parseEther("0.0001")
+
+        await expect(
+          kipubank.connect(user1).withdraw(withdrawAmount)
+        ).to.changeEtherBalances(ethers,[user1, kipubank], [withdrawAmount, -withdrawAmount]);
+
+        const depositCount = await kipubank.depositosCount();
+        expect(depositCount).to.be.equal(1)
+        const withdrawCount = await kipubank.withdrawalCount();
+        expect(withdrawCount).to.be.equal(1)
       }
     )
   })
@@ -161,7 +176,7 @@ describe("kipuBank", async function () {
     it("debería emitir un evento Deposit cuando un usuario deposita ETH",
       async function () {
         const { kipubank, user1 } = await networkHelpers.loadFixture(kipuBankFixture);
-        const depositAmount = ethers.parseEther("400");
+        const depositAmount = ethers.parseEther("0.0004");
         await expect(
           user1.sendTransaction({ to: kipubank.getAddress(), value: depositAmount })
         ).to.emit(kipubank, "Deposit")
@@ -171,9 +186,9 @@ describe("kipuBank", async function () {
     it("debería emitir un evento Withdrawal cuando un usuario retira ETH",
       async function () {
         const { kipubank, user1 } = await networkHelpers.loadFixture(kipuBankFixture);
-        const depositAmount = ethers.parseEther("400")
+        const depositAmount = ethers.parseEther("0.0004")
         await user1.sendTransaction({ to: kipubank.getAddress(), value: depositAmount })
-        const withdrawAmount = ethers.parseEther("1");
+        const withdrawAmount = ethers.parseEther("0.0001");
         await expect(
           kipubank.connect(user1).withdraw(withdrawAmount))
         .to.emit(kipubank, "Withdrawal")

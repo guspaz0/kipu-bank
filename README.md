@@ -36,7 +36,7 @@ KipuBank es un contrato inteligente basado en Ethereum para gestionar depósitos
 5. **Desplegar el Contrato**:
    - Ve a la pestaña "Deploy & Run Transactions" en Remix.
    - En el menu desplegable de ENVIRONMENT, seleccionar y configura tu entorno de red (por ejemplo, Rinkeby Test Network). por ejemplo para deployar en sepolia testnet seleccionar "browser Extension" > "Injected Provider - MetaMask" y seleccionar la cuenta metamask asociada a Sepolia testnet.
-   - Introduce los parámetros necesarios para el contrato (`bankCap`, `withdrawLimit`), ambos parametros son valores enteros, por ejemplo `bankCap`: `1000000000000000` Wei (0.001 ETH) y `withdrawLimit`: `100000000000000` Wei (0.0001 ETH).
+   - Introduce los parámetros necesarios para el contrato (`bankCap`), el parametro es un valor entero en Wei, por ejemplo `bankCap`: `1000000000000000` Wei (0.001 ETH) 
    - Haz clic en "Deploy".
    - Si seleccionaste Metamask, se abrira la extension para que confirmes la transaccion.
 
@@ -47,7 +47,8 @@ KipuBank es un contrato inteligente basado en Ethereum para gestionar depósitos
 
 2. **Depósito de ETH**:
    - Seleccionar la address con cual operar.
-   - Introduce la cantidad de ETH que deseas depositar (en Wei) en el circulo que muestra la imagen.
+   - Encuentra la funcion `deposit` en la lista de funciones desplegadas.
+   - Introduce la cantidad de ETH que deseas depositar (en Wei), incluyendo el mismo monto en el parametro de la funcion. Son 2 campos.
 
    <img src="./assets/remix_interacciones_contrato.png" alt="">/>
    - Haz clic en el botón `transact` ubicado al ultimo scrolleando hacia abajo.
@@ -73,5 +74,5 @@ KipuBank es un contrato inteligente basado en Ethereum para gestionar depósitos
 KipuBank proporciona una manera segura y sencilla de manejar depósitos y retiros de ETH en la blockchain de Ethereum. El contrato inteligente incluye mecanismos para prevenir el acceso no autorizado, gestionar límites globales y asegurar transacciones seguras.
 
 ## Direccion del contrato en Sepolia testnet:
-- Direccion contrato: `0xbb46ee72ec917248589c6d81097d8550`.
-- [Link deploy Sepolia Etherscan](https://sepolia.etherscan.io/address/0xbb46ee72ec917248589c6d81097d855086c838a9)
+- Direccion contrato: `0x3d5DE1E90Bb71FEa82E15712dca9fe3182155D79`.
+- [Link deploy Sepolia Etherscan](https://sepolia.etherscan.io/address/0x3d5DE1E90Bb71FEa82E15712dca9fe3182155D79)

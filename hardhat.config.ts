@@ -1,16 +1,11 @@
 import type { HardhatUserConfig } from "hardhat/config";
 import hardhatToolboxMochaEthersPlugin from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
 import { configVariable } from "hardhat/config";
-import HardhatContractSizer from '@solidstate/hardhat-contract-sizer';
 
 const config: HardhatUserConfig = {
   plugins: [
-    hardhatToolboxMochaEthersPlugin, 
-    HardhatContractSizer
+    hardhatToolboxMochaEthersPlugin
   ],
-  contractSizer: {
-    runOnCompile: false
-  },
   solidity: {
     profiles: {
       default: {
@@ -32,16 +27,16 @@ const config: HardhatUserConfig = {
       type: "edr-simulated",
       chainType: "l1",
     },
-    // hardhatOp: {
-    //   type: "edr-simulated",
-    //   chainType: "op",
-    // },
-    // sepolia: {
-    //   type: "http",
-    //   chainType: "l1",
-    //   url: configVariable("SEPOLIA_RPC_URL"),
-    //   accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
-    // },
+    hardhatOp: {
+      type: "edr-simulated",
+      chainType: "op",
+    },
+    sepolia: {
+      type: "http",
+      chainType: "l1",
+      url: configVariable("SEPOLIA_RPC_URL"),
+      accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
+    },
   },
 };
 
