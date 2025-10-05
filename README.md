@@ -76,3 +76,7 @@ KipuBank proporciona una manera segura y sencilla de manejar depósitos y retiro
 ## Direccion del contrato en Sepolia testnet:
 - Direccion contrato: `0x3d5DE1E90Bb71FEa82E15712dca9fe3182155D79`.
 - [Link deploy Sepolia Etherscan](https://sepolia.etherscan.io/address/0x3d5DE1E90Bb71FEa82E15712dca9fe3182155D79)
+
+## Changelog
+
+[link Changelog](CHANGELOG.md)

@@ -19,7 +19,10 @@
 
 # Hardhat coverage reports
 /coverage
+#pnpm
+/.pnpm-store
 
 /.vscode
+
 
 package-lock.json
