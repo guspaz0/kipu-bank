@@ -36,9 +36,6 @@ contract KipuBank {
     /// @notice Indica si el contrato está bloqueado para nuevas transacciones.
     bool private lock = false;
 
-    /// @notice variable para pausar el contrato en situaciones excepcionales
-    bool public paused;
-
     /*//////////////////////////////
             Errores
     ///////////////////////////////*/
@@ -50,7 +47,7 @@ contract KipuBank {
     error ValueError(uint256 value);
 
     /// @notice Error personalizado para manejo de llamadas no autorizadas
-    error Unauthorized(address caller);
+    error Reentrancy();
 
     /// @notice Error personalizado para manejo de excedentes del límite del banco
     error BankCapLimitExceeded(address caller, uint256 attemptedDeposit, uint256 bankCap);
@@ -95,7 +92,7 @@ contract KipuBank {
 
     /// @notice Modificador para prevenir la reentrancia
     modifier nonReentrant() {
-        if (lock) revert Unauthorized(msg.sender);
+        if (lock) revert Reentrancy();
         lock = true;
         _;
         lock = false;
