@@ -16,7 +16,7 @@ contract KipuBank {
     address public immutable owner;
 
     /// @notice Límite por transacción de retiro (en wei)
-    uint256 public withdrawLimit = 1e14; 
+    uint256 public immutable withdrawLimit = 1e14; 
 
     /// @notice Mapping para relacionar las direcciones con la información de los usuarios
     mapping(address => uint256) private balances;
@@ -44,13 +44,10 @@ contract KipuBank {
     ///////////////////////////////*/
 
     /// @notice Error personalizado para manejo de fondos insuficientes
-    error InsufficientBalance(uint256 requested, uint256 available);
+    error InsufficientUserBalance(uint256 requested, uint256 available);
 
     /// @notice Error personalizado para manejo de valores no válidos
     error ValueError(uint256 value);
-
-    /// @notice Error personalizado para manejo de errores genéricos con mensaje
-    error CustomError(string message, address caller, uint256 value);
 
     /// @notice Error personalizado para manejo de llamadas no autorizadas
     error Unauthorized(address caller);
@@ -58,9 +55,29 @@ contract KipuBank {
     /// @notice Error personalizado para manejo de excedentes del límite del banco
     error BankCapLimitExceeded(string message, address caller, uint256 attemptedDeposit, uint256 bankCap);
 
-    /// @notice Errores personalizado para cuando el contrato se encuentra pausado
-    error ContractPaused();
-    error ContractNotPaused();
+    /// @notice Error personalizado para manejo de errores en el limite de retiro
+    error WithdrawalLimitExceeded(address caller, uint256 attemptedWithdrawal);
+
+    /// @notice Error personalizado para manejo de errores en retiros con valor cero
+    error WithdrawalAmountError(address caller, uint256 attemptedWithdrawal);
+
+    /// @notice Error personalizado para manejo de retiros al transferir
+    error WithdrawalTransferError(address caller, uint256 _amount);
+
+    /// @notice Error personalizado para manejo de errores en los depositos
+    error DepositAmountMismatch(address caller, uint256 expectedValue, uint256 _amount);
+
+    /// @notice Error personalizado para manejo de errores en el los depositos
+    error DepositFailed(address caller, uint256 value);
+
+    /// @notice Error personalizado para manejo de errores en el los depositos fallbacks (receive)
+    error ReceiveFallbackDepositError(address caller, uint256 value);
+
+    /// @notice Error personalizado para manejo de errores en el los depositos fallbacks (fallback)
+    error FallbackDepositError(address caller, uint256 value);
+
+    /// @notice Error personalizado para manejo de errores en los parametros del constructor
+    error ConstructorError(string parameter);
 
     /*//////////////////////////////
             Eventos
@@ -72,20 +89,13 @@ contract KipuBank {
     /// @notice Evento que se emite cuando se realiza un retiro
     event Withdrawal(address indexed _user, uint256 _amount, uint256 _newBalance);
 
-    /// @notice evento para pausar la operaciones
-    event Paused(address indexed account);
-    /// @notice evento para despausar las operaciones
-    event Unpaused(address indexed account);
-    /// @notice evento queSe emite al actualizar el limite de retiros
-    event WithdrawLimitChanged(address indexed account, uint256 newWithdrawLimit);
-
     /*//////////////////////////////
             Modificadores
     ///////////////////////////////*/
 
     /// @notice Modificador para prevenir la reentrancia
     modifier nonReentrant() {
-        require(lock == false, Unauthorized(msg.sender));
+        if (lock) revert Unauthorized(msg.sender);
         lock = true;
         _;
         lock = false;
@@ -97,28 +107,15 @@ contract KipuBank {
         treasuryBalance = newBalance;
         _;
     }
-    /// @notice Modificador para validar que el llamador es el propietario
-    modifier onlyOwner() {
-        require(msg.sender == owner, Unauthorized(msg.sender));
-        _;
-    }
-    /// @notice Modificador para verificar si el contrato esta pausado
-    modifier onlyWhenNotPaused() {
-        if (paused) revert ContractPaused();
-        _;
-    }
 
     /**
      * @dev Constructor del contrato
      * @param _bankCap El límite máximo de fondos que el banco puede manejar (en wei)
      */
     constructor(uint256 _bankCap) {
-        if (_bankCap > 0) {
-            bankCap = _bankCap;
-            owner = msg.sender;
-        } else {
-            revert CustomError("failed to initialize, check constructor parameters", msg.sender, 0);
-        }
+        if (_bankCap == 0) revert ConstructorError("_bankCap");
+        bankCap = _bankCap;
+        owner = msg.sender;
     }
 
     /*//////////////////////////////
@@ -137,22 +134,22 @@ contract KipuBank {
      * @dev Función para depositar ETH en la cuenta del usuario
      */
     function deposit(uint256 _amount) external payable {
-        require(_amount == msg.value, CustomError("amount does not match sent value", msg.sender, _amount));
+        if (_amount != msg.value) revert DepositAmountMismatch(msg.sender, msg.value, _amount);
         bool success = depositFallback();
-        if (!success) revert CustomError("Deposit failed", msg.sender, msg.value);
+        if (!success) revert DepositFailed(msg.sender, msg.value);
     }
 
     /**
      * @dev Función para retirar ETH de la cuenta del usuario
      * @param amount La cantidad a retirar (en wei)
      */
-    function withdraw(uint256 amount) public nonReentrant onlyWhenNotPaused {
+    function withdraw(uint256 amount) public nonReentrant {
         if (amount > 0) {
             // Cache the balance to avoid multiple storage reads
             uint256 userBalance = balances[msg.sender];
             
-            if (amount > withdrawLimit) revert CustomError("Withdrawal limit exceeded", msg.sender, amount);
-            if (amount > userBalance) revert InsufficientBalance(amount, userBalance);
+            if (amount > withdrawLimit) revert WithdrawalLimitExceeded(msg.sender, amount);
+            if (amount > userBalance) revert InsufficientUserBalance(amount, userBalance);
 
             // Restar la cantidad retirada al balance del usuario
             //unchecked {
@@ -164,7 +161,7 @@ contract KipuBank {
 
             // Transferir la cantidad al usuario
             (bool success, ) = msg.sender.call{value: amount}("");
-            if (!success) revert CustomError("failed transfer", msg.sender, amount);
+            if (!success) revert WithdrawalTransferError(msg.sender, amount);
 
             // Emitir evento de retiro
             emit Withdrawal(msg.sender, amount, userBalance - amount);
@@ -172,12 +169,12 @@ contract KipuBank {
             // aumentar contador retiros
             withdrawalCount++;
         } else {
-            revert CustomError("invalid amount", msg.sender, amount);
+            revert WithdrawalAmountError(msg.sender, amount);
         }
     }
 
     /// @notice funcion privada para manejar el depósito de ETH en caso de que entre en las funciones fallback
-    function depositFallback() private bankCapCheck onlyWhenNotPaused returns (bool) { 
+    function depositFallback() private bankCapCheck returns (bool) { 
         if (msg.value == 0) return false;
         
         uint256 userBalance = balances[msg.sender];
@@ -192,43 +189,19 @@ contract KipuBank {
         return true;
     }
 
-    /**
-     * @dev Función para modificar el limite de extraccion, solo disponible para el propietario
-     * @param _newWithdrawLimit El nuevo límite de extracción (en wei)
-     */
-    function setWithdrawLimit(uint256 _newWithdrawLimit) external onlyOwner {
-        if (_newWithdrawLimit == 0) revert CustomError("Withdraw limit cannot be set to 0", msg.sender, 0);
-        withdrawLimit = _newWithdrawLimit;
-        emit WithdrawLimitChanged(msg.sender, _newWithdrawLimit);
-    }
-
-    /// @notice funcion para pausar el contrato
-    function pause() external onlyOwner {
-        if (paused) revert ContractNotPaused();
-        paused = true;
-        emit Paused(msg.sender);
-    }
-
-    /// @notice funcion para despausar el contrato
-    function unpause() external onlyOwner {
-        if (!paused) revert ContractPaused();
-        paused = false;
-        emit Unpaused(msg.sender);
-    }
-
-    /*//////////////////////////////
+    /*///////////////////////////////
             Fallbacks
     ///////////////////////////////*/
 
     /// @notice Función para aceptar ETH directo (sin datos)
     receive() external payable {
         bool success = depositFallback();
-        if (!success) revert CustomError("receive sin ETH", msg.sender, msg.value);
+        if (!success) revert ReceiveFallbackDepositError(msg.sender, msg.value);
     }
 
     /// @notice Fallback para llamadas con datos inesperados
     fallback() external payable {
         bool success = depositFallback();
-        if (!success) revert CustomError("Funcion inexistente y sin ETH", msg.sender, msg.value);
+        if (!success) revert FallbackDepositError(msg.sender, msg.value);
     }
 }

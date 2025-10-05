@@ -109,8 +109,8 @@ describe("kipuBank", async function () {
 
         await expect(
           kipubank.connect(user1).withdraw(withdrawalAmount)
-        ).to.be.revertedWithCustomError(kipubank, "CustomError")
-        .withArgs("Withdrawal limit exceeded",user1.address, withdrawalAmount);
+        ).to.be.revertedWithCustomError(kipubank, "WithdrawalLimitExceeded")
+        .withArgs(user1.address, withdrawalAmount);
       });
 
     it("debería denegar a los usuarios retirar y depositar 0 ETH",
@@ -123,13 +123,13 @@ describe("kipuBank", async function () {
 
         await expect(
           kipubank.connect(user1).withdraw(0)
-        ).to.be.revertedWithCustomError(kipubank, "CustomError")
-        .withArgs("invalid amount",user1.address, 0);
+        ).to.be.revertedWithCustomError(kipubank, "WithdrawalAmountError")
+        .withArgs(user1.address, 0);
 
         await expect(
           user1.sendTransaction({ to: kipubank.getAddress(), value: 0 })
-        ).to.be.revertedWithCustomError(kipubank, "CustomError")
-        .withArgs("receive sin ETH",user1.address, 0);
+        ).to.be.revertedWithCustomError(kipubank, "ReceiveFallbackDepositError")
+        .withArgs(user1.address, 0);
       }
     );
     it("debería denegar a los usuarios retirar más de su saldo",
@@ -145,7 +145,7 @@ describe("kipuBank", async function () {
         const withdrawAmount = ethers.parseEther("0.0001")
         await expect(
           kipubank.connect(user1).withdraw(withdrawAmount)
-        ).to.be.revertedWithCustomError(kipubank, "InsufficientBalance")
+        ).to.be.revertedWithCustomError(kipubank, "InsufficientUserBalance")
         .withArgs(withdrawAmount, depositAmount1);
       }
     )
