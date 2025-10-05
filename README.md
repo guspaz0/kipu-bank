@@ -74,8 +74,8 @@ KipuBank es un contrato inteligente basado en Ethereum para gestionar depósitos
 KipuBank proporciona una manera segura y sencilla de manejar depósitos y retiros de ETH en la blockchain de Ethereum. El contrato inteligente incluye mecanismos para prevenir el acceso no autorizado, gestionar límites globales y asegurar transacciones seguras.
 
 ## Direccion del contrato en Sepolia testnet:
-- Direccion contrato: `0x3d5DE1E90Bb71FEa82E15712dca9fe3182155D79`.
-- [Link deploy Sepolia Etherscan](https://sepolia.etherscan.io/address/0x3d5DE1E90Bb71FEa82E15712dca9fe3182155D79)
+- Direccion contrato: `0x1c7212658C2Dc1719f5dB7Ad064415Ce2e473Bf8`.
+- [Link deploy Sepolia Etherscan](https://sepolia.etherscan.io/address/0x1c7212658c2dc1719f5db7ad064415ce2e473bf8)
 
 ## Changelog
 
