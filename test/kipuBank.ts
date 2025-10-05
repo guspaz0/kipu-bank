@@ -75,7 +75,7 @@ describe("kipuBank", async function () {
         await expect(
           user3.sendTransaction({ to: kipubank.getAddress(), value: depositAmount3 })
         ).to.be.revertedWithCustomError(kipubank, "BankCapLimitExceeded")
-          .withArgs("global deposit limit exceeded", user3.address, depositAmount3, bankCap);
+          .withArgs(user3.address, depositAmount3, bankCap);
 
         expect(await kipubank.treasuryBalance()).to.be.lessThanOrEqual(bankCap);
 
