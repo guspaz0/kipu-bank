@@ -53,7 +53,7 @@ contract KipuBank {
     error Unauthorized(address caller);
 
     /// @notice Error personalizado para manejo de excedentes del límite del banco
-    error BankCapLimitExceeded(string message, address caller, uint256 attemptedDeposit, uint256 bankCap);
+    error BankCapLimitExceeded(address caller, uint256 attemptedDeposit, uint256 bankCap);
 
     /// @notice Error personalizado para manejo de errores en el limite de retiro
     error WithdrawalLimitExceeded(address caller, uint256 attemptedWithdrawal);
@@ -103,7 +103,7 @@ contract KipuBank {
     /// @notice Modificador para verificar si no se ah excedido el limite del banco y actualiza el balance
     modifier bankCapCheck() {
         uint256 newBalance = treasuryBalance + msg.value;
-        if (newBalance > bankCap) revert BankCapLimitExceeded("global deposit limit exceeded", msg.sender, msg.value, bankCap);
+        if (newBalance > bankCap) revert BankCapLimitExceeded(msg.sender, msg.value, bankCap);
         treasuryBalance = newBalance;
         _;
     }
@@ -144,33 +144,30 @@ contract KipuBank {
      * @param amount La cantidad a retirar (en wei)
      */
     function withdraw(uint256 amount) public nonReentrant {
-        if (amount > 0) {
-            // Cache the balance to avoid multiple storage reads
-            uint256 userBalance = balances[msg.sender];
-            
-            if (amount > withdrawLimit) revert WithdrawalLimitExceeded(msg.sender, amount);
-            if (amount > userBalance) revert InsufficientUserBalance(amount, userBalance);
+        if (amount == 0) revert WithdrawalAmountError(msg.sender, amount);
+        // Cache the balance to avoid multiple storage reads
+        uint256 userBalance = balances[msg.sender];
+        
+        if (amount > withdrawLimit) revert WithdrawalLimitExceeded(msg.sender, amount);
+        if (amount > userBalance) revert InsufficientUserBalance(amount, userBalance);
 
-            // Restar la cantidad retirada al balance del usuario
-            //unchecked {
-            balances[msg.sender] = userBalance - amount;
-            //}
+        // Restar la cantidad retirada al balance del usuario
+        //unchecked {
+        balances[msg.sender] = userBalance - amount;
+        //}
 
-            // Restar el balance de la tesorería
-            treasuryBalance -= amount;
+        // Restar el balance de la tesorería
+        treasuryBalance -= amount;
 
-            // Transferir la cantidad al usuario
-            (bool success, ) = msg.sender.call{value: amount}("");
-            if (!success) revert WithdrawalTransferError(msg.sender, amount);
+        // Transferir la cantidad al usuario
+        (bool success, ) = msg.sender.call{value: amount}("");
+        if (!success) revert WithdrawalTransferError(msg.sender, amount);
 
-            // Emitir evento de retiro
-            emit Withdrawal(msg.sender, amount, userBalance - amount);
+        // Emitir evento de retiro
+        emit Withdrawal(msg.sender, amount, userBalance - amount);
 
-            // aumentar contador retiros
-            withdrawalCount++;
-        } else {
-            revert WithdrawalAmountError(msg.sender, amount);
-        }
+        // aumentar contador retiros
+        withdrawalCount++;
     }
 
     /// @notice funcion privada para manejar el depósito de ETH en caso de que entre en las funciones fallback
