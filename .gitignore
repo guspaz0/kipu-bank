@@ -19,8 +19,6 @@
 
 # Hardhat coverage reports
 /coverage
-#pnpm
-/.pnpm-store
 
 /.vscode
 

@@ -6,6 +6,11 @@ const config: HardhatUserConfig = {
   plugins: [
     hardhatToolboxMochaEthersPlugin
   ],
+  test: {
+    solidity: {
+      ffi: true
+    }
+  },
   solidity: {
     profiles: {
       default: {
